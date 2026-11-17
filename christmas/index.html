@@ -59,6 +59,8 @@
   .small { font-size: 12px; color: var(--muted); }
   a { color: var(--accent); }
   .hidden { display: none !important; }
+  #panel.restricted .ctl { display: none !important; }
+  #restrictedNote { font-size: 13px; color: var(--muted); line-height: 1.45; margin: 4px 0 2px; }
 </style>
 </head>
 <body>
@@ -83,15 +85,16 @@
   </div>
 
   <div id="signedIn" class="hidden">
-    <label for="device">Play on</label>
-    <div class="row">
+    <div id="restrictedNote" class="hidden"></div>
+    <label for="device" class="ctl">Play on</label>
+    <div class="row ctl">
       <select id="device" class="grow"></select>
       <button class="icon" id="refresh" title="Refresh speakers" aria-label="Refresh speakers">&#x21bb;</button>
     </div>
-    <div class="row">
+    <div class="row ctl">
       <button class="primary" id="play">&#9654;&nbsp; Play the playlist</button>
     </div>
-    <div class="row">
+    <div class="row ctl">
       <button class="icon" id="prev" title="Previous" aria-label="Previous song">&#x23EE;</button>
       <button class="icon" id="toggle" title="Pause / resume" aria-label="Pause or resume">&#x23EF;</button>
       <button class="icon" id="next" title="Next" aria-label="Next song">&#x23ED;</button>
@@ -259,6 +262,10 @@ async function poll() {
     const s = await api('/me/player?additional_types=track');
     if (!s || !s.item) { showTrack(null); return; }
     showTrack(s.item, s.is_playing, s.progress_ms, s.device && (s.device.id === sdkDeviceId ? 'this browser' : s.device.name));
+    const restricted = !!(s.device && s.device.is_restricted);
+    $('panel').classList.toggle('restricted', restricted);
+    $('restrictedNote').classList.toggle('hidden', !restricted);
+    if (restricted) { $('restrictedNote').textContent = 'Playing on ' + s.device.name + '. Sonos speakers are controlled from the Spotify app on your phone; this screen just shows the backdrop and what\u2019s playing.'; say(''); }
     $('shuffle').setAttribute('aria-pressed', String(!!s.shuffle_state));
     if (s.device && s.device.volume_percent != null) lastVolume = s.device.volume_percent;
   } catch (e) { /* keep quiet while polling */ }
