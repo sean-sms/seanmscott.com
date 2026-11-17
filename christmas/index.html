@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Christmas by the Fire</title>
+<style>
+  :root {
+    --cream: #f6ead6;
+    --muted: rgba(246, 234, 214, .7);
+    --glass: rgba(28, 16, 8, .62);
+    --line: rgba(255, 220, 170, .22);
+    --accent: #e8b25a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body.idle { cursor: none; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  /* now playing card */
+  #np { position: fixed; left: 3.2vw; bottom: 4.5vh; display: none; align-items: center; gap: 1.1vw;
+    padding: .9vw 1.4vw .9vw .9vw; background: var(--glass); border: 1px solid var(--line); border-radius: 1.1vw;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-width: 42vw;
+    box-shadow: 0 10px 40px rgba(0,0,0,.35); transition: opacity 1.2s; }
+  #np.show { display: flex; }
+  body.idle #np { opacity: .82; }
+  #art { width: 6.2vw; height: 6.2vw; min-width: 64px; min-height: 64px; border-radius: .6vw; object-fit: cover; background: #2a1a10; }
+  #meta { min-width: 0; }
+  #title { font-size: clamp(15px, 1.45vw, 30px); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #artist { font-size: clamp(12px, 1.05vw, 22px); color: var(--muted); margin-top: .25vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #bar { height: 3px; background: rgba(255,255,255,.18); border-radius: 2px; margin-top: .7vw; overflow: hidden; }
+  #bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 1s linear; }
+  #where { font-size: clamp(10px, .8vw, 16px); color: var(--muted); margin-top: .45vw; letter-spacing: .02em; }
+
+  /* control panel */
+  #panel { position: fixed; right: 2.5vw; top: 4vh; width: min(380px, 90vw); padding: 18px 18px 16px;
+    background: var(--glass); border: 1px solid var(--line); border-radius: 16px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 10px 40px rgba(0,0,0,.35);
+    transition: opacity .6s, transform .6s; }
+  body.idle.playing #panel { opacity: 0; transform: translateY(-12px); pointer-events: none; }
+  #panel h1 { font-size: 17px; margin: 0 0 4px; font-weight: 650; }
+  #panel p { margin: 0 0 12px; font-size: 13px; color: var(--muted); line-height: 1.4; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 5px; }
+  select, button { font: inherit; color: var(--cream); }
+  select { width: 100%; padding: 9px 10px; border-radius: 10px; background: rgba(0,0,0,.35); border: 1px solid var(--line); }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row + .row { margin-top: 10px; }
+  button { cursor: pointer; border: 1px solid var(--line); background: rgba(255,255,255,.08); border-radius: 10px; padding: 9px 12px; }
+  button:hover, button:focus-visible { background: rgba(255,255,255,.16); outline: none; border-color: rgba(255,220,170,.5); }
+  button.primary { background: var(--accent); color: #2a1606; border-color: transparent; font-weight: 650; flex: 1; }
+  button.primary:hover, button.primary:focus-visible { background: #f2c477; }
+  button.icon { width: 44px; padding: 9px 0; font-size: 16px; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .grow { flex: 1; }
+  #msg { font-size: 12.5px; color: #ffd9a0; margin-top: 10px; min-height: 1em; line-height: 1.35; }
+  .small { font-size: 12px; color: var(--muted); }
+  a { color: var(--accent); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<video id="bg" src="backdrop.mp4" autoplay muted loop playsinline></video>
+
+<div id="np" aria-live="polite">
+  <img id="art" alt="">
+  <div id="meta">
+    <div id="title"></div>
+    <div id="artist"></div>
+    <div id="bar"><i></i></div>
+    <div id="where"></div>
+  </div>
+</div>
+
+<div id="panel">
+  <h1>Christmas by the Fire</h1>
+
+  <div id="signedOut">
+    <p>Sign in with Spotify to play the Christmas playlist on your Sonos or in this browser.</p>
+    <div class="row"><button class="primary" id="login">Sign in with Spotify</button></div>
+  </div>
+
+  <div id="signedIn" class="hidden">
+    <label for="device">Play on</label>
+    <div class="row">
+      <select id="device" class="grow"></select>
+      <button class="icon" id="refresh" title="Refresh speakers" aria-label="Refresh speakers">&#x21bb;</button>
+    </div>
+    <div class="row">
+      <button class="primary" id="play">&#9654;&nbsp; Play the playlist</button>
+    </div>
+    <div class="row">
+      <button class="icon" id="prev" title="Previous" aria-label="Previous song">&#x23EE;</button>
+      <button class="icon" id="toggle" title="Pause / resume" aria-label="Pause or resume">&#x23EF;</button>
+      <button class="icon" id="next" title="Next" aria-label="Next song">&#x23ED;</button>
+      <button class="icon" id="shuffle" title="Shuffle" aria-label="Shuffle" aria-pressed="false">&#x1F500;</button>
+      <button class="icon" id="voldown" title="Volume down" aria-label="Volume down">&minus;</button>
+      <button class="icon" id="volup" title="Volume up" aria-label="Volume up">+</button>
+    </div>
+    <div class="row">
+      <button id="fs" class="grow">Full screen</button>
+      <button id="logout" class="grow">Sign out</button>
+    </div>
+  </div>
+
+  <div id="msg"></div>
+</div>
+
+<script>
+/* ===================== settings ===================== */
+// Paste the Client ID from your Spotify developer app here:
+const CLIENT_ID = '85e0deca7c874762b0ba9e4f22f2817b';
+const PLAYLIST_URI = 'spotify:playlist:62K7byeIgJuvMEMW14Oy1K';
+const PREFERRED_DEVICE = /beam|sonos|living/i;   // picked automatically if found
+/* ==================================================== */
+
+const REDIRECT_URI = location.origin + location.pathname.replace(/\/index\.html$/, '/');
+const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-email user-read-private';
+const API = 'https://api.spotify.com/v1';
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem('xmas_' + k); } catch (e) { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem('xmas_' + k) : localStorage.setItem('xmas_' + k, v); } catch (e) {} },
+};
+let sdkDeviceId = null, pollTimer = null, lastVolume = 40;
+const DEMO = location.hash === '#demo';
+
+function say(t) { $('msg').textContent = t || ''; }
+
+/* ---------- sign-in (Authorization Code with PKCE; no secret needed) ---------- */
+function b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function randomString(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a).slice(0, n); }
+
+async function login() {
+  if (CLIENT_ID.startsWith('PASTE')) { say('Add your Spotify Client ID to index.html first (see README).'); return; }
+  const verifier = randomString(64), state = randomString(16);
+  store.set('verifier', verifier); store.set('state', state);
+  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  const q = new URLSearchParams({ client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI,
+    code_challenge_method: 'S256', code_challenge: challenge, scope: SCOPES, state });
+  location.href = 'https://accounts.spotify.com/authorize?' + q;
+}
+
+async function tokenRequest(params) {
+  const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params) });
+  if (!r.ok) throw new Error('Spotify sign-in failed (' + r.status + ')');
+  const j = await r.json();
+  store.set('access', j.access_token);
+  store.set('expires', String(Date.now() + (j.expires_in - 60) * 1000));
+  if (j.refresh_token) store.set('refresh', j.refresh_token);
+}
+
+async function finishLoginIfReturning() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('error')) { say('Spotify sign-in was cancelled.'); history.replaceState(null, '', REDIRECT_URI); return; }
+  if (!q.get('code')) return;
+  if (q.get('state') !== store.get('state')) { say('Sign-in check failed; please try again.'); history.replaceState(null, '', REDIRECT_URI); return; }
+  await tokenRequest({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: REDIRECT_URI,
+    client_id: CLIENT_ID, code_verifier: store.get('verifier') });
+  store.set('verifier', null); store.set('state', null);
+  history.replaceState(null, '', REDIRECT_URI);
+}
+
+async function token() {
+  if (!store.get('access')) return null;
+  if (Date.now() > Number(store.get('expires') || 0) && store.get('refresh')) {
+    try { await tokenRequest({ grant_type: 'refresh_token', refresh_token: store.get('refresh'), client_id: CLIENT_ID }); }
+    catch (e) { logout(); say('Please sign in again.'); return null; }
+  }
+  return store.get('access');
+}
+
+function logout() {
+  ['access', 'refresh', 'expires'].forEach(k => store.set(k, null));
+  clearInterval(pollTimer); $('np').classList.remove('show'); document.body.classList.remove('playing');
+  showSignedIn(false);
+}
+
+/* ---------- Web API helper ---------- */
+async function api(path, opts = {}) {
+  const t = await token(); if (!t) throw new Error('Not signed in');
+  const r = await fetch(API + path, { ...opts, headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  if (r.status === 204) return null;
+  if (r.status === 401) { logout(); throw new Error('Your Spotify sign-in expired. Please sign in again.'); }
+  if (r.status === 403) throw new Error('Spotify refused that (403). Check that your account is added under User Management in the developer dashboard.');
+  if (r.status === 404) throw new Error('That speaker isn’t available. Wake it up (play anything on it), then press ↻.');
+  if (!r.ok) throw new Error('Spotify error ' + r.status);
+  const txt = await r.text(); return txt ? JSON.parse(txt) : null;
+}
+
+/* ---------- speakers ---------- */
+async function loadDevices() {
+  const sel = $('device'); const keep = sel.value || store.get('device');
+  let list = [];
+  try { list = (await api('/me/player/devices')).devices || []; } catch (e) { say(e.message); }
+  if (sdkDeviceId && !list.some(d => d.id === sdkDeviceId)) list.push({ id: sdkDeviceId, name: 'This browser', type: 'Computer' });
+  sel.innerHTML = '';
+  if (!list.length) { sel.innerHTML = '<option value="">No speakers found — open Spotify or wake the Sonos, then press ↻</option>'; return; }
+  for (const d of list) {
+    const o = document.createElement('option'); o.value = d.id;
+    o.textContent = d.id === sdkDeviceId ? 'This browser' : `${d.name} (${d.type})`;
+    sel.appendChild(o);
+  }
+  const pick = list.find(d => d.id === keep) || list.find(d => PREFERRED_DEVICE.test(d.name)) || list.find(d => d.is_active) || list[0];
+  sel.value = pick.id;
+  if (!list.some(d => d.id !== sdkDeviceId && PREFERRED_DEVICE.test(d.name))) say('Don’t see the Beam? Play anything on it from the Spotify app once, then press ↻.');
+  else say('');
+}
+
+/* ---------- playback ---------- */
+async function playPlaylist() {
+  const id = $('device').value; if (!id) { say('Pick a speaker first.'); return; }
+  store.set('device', id);
+  say('Starting…');
+  try {
+    if (id === sdkDeviceId && window.sdkPlayer) await window.sdkPlayer.activateElement?.();
+    await api('/me/player/play?device_id=' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify({ context_uri: PLAYLIST_URI }) });
+    say(''); document.body.classList.add('playing'); setTimeout(poll, 1200);
+  } catch (e) { say(e.message); }
+}
+async function cmd(path, method = 'POST') { try { await api(path, { method }); setTimeout(poll, 600); } catch (e) { say(e.message); } }
+async function toggle() {
+  try { const s = await api('/me/player'); await cmd(s && s.is_playing ? '/me/player/pause' : '/me/player/play', 'PUT'); } catch (e) { say(e.message); }
+}
+async function shuffle() {
+  const on = $('shuffle').getAttribute('aria-pressed') !== 'true';
+  await cmd('/me/player/shuffle?state=' + on, 'PUT'); $('shuffle').setAttribute('aria-pressed', String(on));
+}
+async function volume(delta) {
+  try {
+    const s = await api('/me/player'); const v = Math.max(0, Math.min(100, ((s && s.device && s.device.volume_percent) ?? lastVolume) + delta));
+    lastVolume = v; await cmd('/me/player/volume?volume_percent=' + v, 'PUT'); say('Volume ' + v + '%'); setTimeout(() => say(''), 1500);
+  } catch (e) { say(e.message); }
+}
+
+/* ---------- now playing ---------- */
+function showTrack(item, isPlaying, progress, deviceName) {
+  if (!item) { $('np').classList.remove('show'); return; }
+  const imgs = (item.album && item.album.images) || [];
+  const artUrl = (imgs[1] || imgs[0] || {}).url || '';
+  $('art').src = artUrl; $('art').style.display = artUrl ? '' : 'none';
+  $('title').textContent = item.name || '';
+  $('artist').textContent = (item.artists || []).map(a => a.name).join(', ');
+  $('bar').firstElementChild.style.width = item.duration_ms ? (100 * progress / item.duration_ms).toFixed(1) + '%' : '0';
+  $('where').textContent = (isPlaying ? 'Playing on ' : 'Paused on ') + (deviceName || 'Spotify');
+  $('np').classList.add('show');
+  document.body.classList.toggle('playing', !!isPlaying);
+}
+async function poll() {
+  try {
+    const s = await api('/me/player?additional_types=track');
+    if (!s || !s.item) { showTrack(null); return; }
+    showTrack(s.item, s.is_playing, s.progress_ms, s.device && (s.device.id === sdkDeviceId ? 'this browser' : s.device.name));
+    $('shuffle').setAttribute('aria-pressed', String(!!s.shuffle_state));
+    if (s.device && s.device.volume_percent != null) lastVolume = s.device.volume_percent;
+  } catch (e) { /* keep quiet while polling */ }
+}
+
+/* ---------- in-browser player (Spotify Web Playback SDK) ---------- */
+function loadSdk() {
+  window.onSpotifyWebPlaybackSDKReady = () => {
+    const p = new Spotify.Player({ name: 'Christmas by the Fire', volume: 0.6,
+      getOAuthToken: cb => token().then(t => t && cb(t)) });
+    p.addListener('ready', ({ device_id }) => { sdkDeviceId = device_id; loadDevices(); });
+    p.addListener('initialization_error', () => {}); // browser can't play DRM audio (e.g. some TV browsers) – speakers still work
+    p.addListener('account_error', () => {});
+    p.connect(); window.sdkPlayer = p;
+  };
+  const s = document.createElement('script'); s.src = 'https://sdk.scdn.co/spotify-player.js'; s.async = true;
+  document.head.appendChild(s);
+}
+
+/* ---------- UI wiring ---------- */
+function showSignedIn(on) { $('signedOut').classList.toggle('hidden', on); $('signedIn').classList.toggle('hidden', !on); }
+$('login').onclick = login;
+$('logout').onclick = () => { logout(); say('Signed out.'); };
+$('refresh').onclick = loadDevices;
+$('play').onclick = playPlaylist;
+$('prev').onclick = () => cmd('/me/player/previous');
+$('next').onclick = () => cmd('/me/player/next');
+$('toggle').onclick = toggle;
+$('shuffle').onclick = shuffle;
+$('voldown').onclick = () => volume(-5);
+$('volup').onclick = () => volume(5);
+$('device').onchange = () => store.set('device', $('device').value);
+$('fs').onclick = () => { const d = document.documentElement;
+  try { const r = document.fullscreenElement ? document.exitFullscreen() : (d.requestFullscreen || d.webkitRequestFullscreen).call(d); r && r.catch && r.catch(() => {}); } catch (e) {} };
+
+// hide controls after a few idle seconds; any mouse move, remote pointer or key brings them back
+let idleT; function wake() { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 6000); }
+['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(e => addEventListener(e, wake)); wake();
+addEventListener('keydown', e => {   // TV remote / keyboard shortcuts
+  if (e.target.tagName === 'SELECT') return;
+  if (e.key === ' ' || e.key === 'MediaPlayPause') { e.preventDefault(); toggle(); }
+  if (e.key === 'MediaTrackNext') cmd('/me/player/next');
+  if (e.key === 'MediaTrackPrevious') cmd('/me/player/previous');
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { $('bg').play().catch(() => {}); poll(); } });
+
+(async function start() {
+  $('bg').play().catch(() => {});
+  if (DEMO) {   // layout preview without signing in
+    showSignedIn(true);
+    $('device').innerHTML = '<option>Living Room Beam (Speaker)</option><option>This browser</option>';
+    showTrack({ name: 'The Christmas Song (Merry Christmas To You)', artists: [{ name: 'Nat King Cole' }], duration_ms: 190000,
+      album: { images: [] } }, true, 76000, 'Living Room Beam');
+    return;
+  }
+  try { await finishLoginIfReturning(); } catch (e) { say(e.message); }
+  if (await token()) {
+    showSignedIn(true);
+    loadSdk();
+    await loadDevices();
+    poll(); pollTimer = setInterval(poll, 5000);
+  } else showSignedIn(false);
+})();
+</script>
+</body>
+</html>
