@@ -25,7 +25,8 @@
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-width: 42vw;
     box-shadow: 0 10px 40px rgba(0,0,0,.35); transition: opacity 1.2s; }
   #np.show { display: flex; }
-  body.idle #np { opacity: .82; }
+  body.idle #np { opacity: 0; transition: opacity 2.5s; }
+  body.idle #np.fresh { opacity: .9; }
   #art { width: 6.2vw; height: 6.2vw; min-width: 64px; min-height: 64px; border-radius: .6vw; object-fit: cover; background: #2a1a10; }
   #meta { min-width: 0; }
   #title { font-size: clamp(15px, 1.45vw, 30px); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -123,7 +124,7 @@ const store = {
   get(k) { try { return localStorage.getItem('xmas_' + k); } catch (e) { return null; } },
   set(k, v) { try { v == null ? localStorage.removeItem('xmas_' + k) : localStorage.setItem('xmas_' + k, v); } catch (e) {} },
 };
-let sdkDeviceId = null, pollTimer = null, lastVolume = 40;
+let sdkDeviceId = null, pollTimer = null, lastVolume = 40, lastTrackId = null, freshT = null;
 const DEMO = location.hash === '#demo';
 
 function say(t) { $('msg').textContent = t || ''; }
@@ -246,6 +247,10 @@ function showTrack(item, isPlaying, progress, deviceName) {
   $('bar').firstElementChild.style.width = item.duration_ms ? (100 * progress / item.duration_ms).toFixed(1) + '%' : '0';
   $('where').textContent = (isPlaying ? 'Playing on ' : 'Paused on ') + (deviceName || 'Spotify');
   $('np').classList.add('show');
+  if (item.id && item.id !== lastTrackId) {   // new song: show the card for ~10 s, then let it fade away
+    lastTrackId = item.id; $('np').classList.add('fresh');
+    clearTimeout(freshT); freshT = setTimeout(() => $('np').classList.remove('fresh'), 10000);
+  }
   document.body.classList.toggle('playing', !!isPlaying);
 }
 async function poll() {
