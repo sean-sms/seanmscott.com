@@ -17,7 +17,20 @@
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--cream);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   body.idle { cursor: none; }
-  #bg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    animation: drift 780s ease-in-out infinite alternate; transform-origin: center; will-change: transform; }
+  /* OLED care: the scene slowly wanders by about 1.5% of the screen so no edge rests on the same pixels */
+  @keyframes drift {
+    0%   { transform: scale(1.045) translate(-1.5%, -1.0%); }
+    25%  { transform: scale(1.055) translate(1.2%, -1.4%); }
+    50%  { transform: scale(1.04)  translate(1.5%, 1.1%); }
+    75%  { transform: scale(1.06)  translate(-1.0%, 1.5%); }
+    100% { transform: scale(1.045) translate(-1.5%, -0.4%); }
+  }
+  #shade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 90s linear; z-index: 3; }
+  #shade.dim { opacity: .18; }
+  #shade.rest { opacity: 1; transition: opacity 20s linear; z-index: 9; }
+  #shade.quick { transition: opacity .8s; }
 
   /* now playing card */
   #np { position: fixed; left: 3.2vw; bottom: 4.5vh; display: none; align-items: center; gap: 1.1vw;
@@ -76,6 +89,7 @@
 </head>
 <body>
 <video id="bg" src="backdrop.mp4" autoplay muted loop playsinline></video>
+<div id="shade"></div>
 
 <div id="np" aria-live="polite">
   <img id="art" alt="">
@@ -158,6 +172,8 @@ const CLIENT_ID = '85e0deca7c874762b0ba9e4f22f2817b';
 const PLAYLIST_URI = 'spotify:playlist:62K7byeIgJuvMEMW14Oy1K';      // the house Christmas playlist
 const PLAYLIST_NAME = '🎄 Popular Christmas Music Hits';
 const RELAY = 'https://ntfy.sh/';   // passes the phone's (encrypted) sign-in to this screen; it never sees the contents
+const DIM_AFTER_MIN = 30;     // OLED care: dim the picture a little after this long without the remote/mouse
+const REST_AFTER_HOURS = 4;   // ...and fade to black after this long (any remote/mouse movement brings it back)
 const EXT_DEVICE = 'Living Room Sonos';   // label for songs reported by Home Assistant
 const PREFERRED_DEVICE = /beam|sonos|living/i;   // picked automatically if found
 /* ==================================================== */
@@ -589,8 +605,22 @@ $('device').onchange = () => updateCurrent({ device: $('device').value });
 $('fs').onclick = () => { const d = document.documentElement;
   try { const r = document.fullscreenElement ? document.exitFullscreen() : (d.requestFullscreen || d.webkitRequestFullscreen).call(d); r && r.catch && r.catch(() => {}); } catch (e) {} };
 
+/* ---------- OLED care: dim, then rest ---------- */
+let dimT, restT, resting = false;
+function careReset() {
+  const sh = $('shade');
+  if (resting || sh.classList.contains('dim')) {   // come back quickly when someone picks up the remote
+    sh.classList.add('quick'); setTimeout(() => sh.classList.remove('quick'), 1200);
+  }
+  sh.classList.remove('dim', 'rest');
+  if (resting) { resting = false; $('bg').play().catch(() => {}); }
+  clearTimeout(dimT); clearTimeout(restT);
+  dimT = setTimeout(() => $('shade').classList.add('dim'), DIM_AFTER_MIN * 60000);
+  restT = setTimeout(() => { resting = true; $('shade').classList.add('rest'); setTimeout(() => { if (resting) $('bg').pause(); }, 21000); }, REST_AFTER_HOURS * 3600000);
+}
+
 // hide controls after a few idle seconds; any mouse move, remote pointer or key brings them back
-let idleT; function wake() { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 8000); }
+let idleT; function wake() { careReset(); document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 8000); }
 ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(e => addEventListener(e, wake)); wake();
 addEventListener('keydown', e => {   // TV remote / keyboard shortcuts
   if (e.target.tagName === 'SELECT') return;
@@ -598,8 +628,8 @@ addEventListener('keydown', e => {   // TV remote / keyboard shortcuts
   if (e.key === 'MediaTrackNext') cmd('/me/player/next');
   if (e.key === 'MediaTrackPrevious') cmd('/me/player/previous');
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { $('bg').play().catch(() => {}); poll(); } });
-setInterval(() => { const v = $('bg'); if (v.paused) v.play().catch(() => {}); }, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (!resting) $('bg').play().catch(() => {}); poll(); } });
+setInterval(() => { const v = $('bg'); if (v.paused && !resting) v.play().catch(() => {}); }, 4000);
 
 (async function start() {
   $('bg').play().catch(() => {});
