@@ -373,7 +373,14 @@ async function refreshUi() {
 }
 
 $('login').onclick = login;
-$('who').onchange = () => { const v = $('who').value; if (v === '__add') { renderWho(); login(); } else switchTo(v); };
+$('who').onchange = () => {
+  const v = $('who').value;
+  if (v === '__add') {
+    renderWho();
+    say('On Spotify’s screen, tap “Not you?” under the name shown to sign in as someone else. Opening Spotify…');
+    setTimeout(login, 4000);
+  } else switchTo(v);
+};
 $('logout').onclick = () => {
   const c = current(); if (!c) return;
   removeProfile(c.id); say(c.name + ' was signed out on this screen.');
