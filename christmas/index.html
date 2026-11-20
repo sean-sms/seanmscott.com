@@ -40,7 +40,7 @@
     background: var(--glass); border: 1px solid var(--line); border-radius: 16px;
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 10px 40px rgba(0,0,0,.35);
     transition: opacity .6s, transform .6s; }
-  body.idle.playing #panel { opacity: 0; transform: translateY(-12px); pointer-events: none; }
+  body.idle.signedin #panel, body.idle.ext #panel { opacity: 0; transform: translateY(-12px); pointer-events: none; }
   #panel h1 { font-size: 17px; margin: 0 0 4px; font-weight: 650; }
   #panel p { margin: 0 0 12px; font-size: 13px; color: var(--muted); line-height: 1.4; }
   label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 5px; }
@@ -158,6 +158,7 @@ const CLIENT_ID = '85e0deca7c874762b0ba9e4f22f2817b';
 const PLAYLIST_URI = 'spotify:playlist:62K7byeIgJuvMEMW14Oy1K';      // the house Christmas playlist
 const PLAYLIST_NAME = '🎄 Popular Christmas Music Hits';
 const RELAY = 'https://ntfy.sh/';   // passes the phone's (encrypted) sign-in to this screen; it never sees the contents
+const EXT_DEVICE = 'Living Room Sonos';   // label for songs reported by Home Assistant
 const PREFERRED_DEVICE = /beam|sonos|living/i;   // picked automatically if found
 /* ==================================================== */
 
@@ -367,37 +368,65 @@ async function volume(delta) {
   } catch (e) { say(e.message); }
 }
 
+/* ---------- now playing from Home Assistant (optional) ----------
+   When music is started through Sonos (not a Spotify phone session), Spotify can't tell this page what's playing.
+   Home Assistant can: it posts the song title/artist to a private channel named in the page address (?np=...). */
+let ext = null;
+function startExt() {
+  const m = location.search.match(/[?&]np=([\w-]{8,64})/); if (m) store.set('np', m[1]);
+  const topic = store.get('np'); if (!topic) return;
+  document.body.classList.add('ext');
+  const take = line => { try { const j = JSON.parse(line); if (j.event !== 'message' || !j.message) return;
+    const title = String(j.message).trim();
+    ext = /^(stopped|paused|idle|off|none|unknown|unavailable)$/i.test(title) ? null : { title, artist: String(j.title || '').trim(), at: Date.now() }; } catch (e) {} };
+  fetch(RELAY + topic + '/json?poll=1&since=10m').then(r => r.text()).then(t => { t.split('\n').forEach(l => l.trim() && take(l)); poll(); }).catch(() => {});
+  try { const es = new EventSource(RELAY + topic + '/sse'); es.onmessage = ev => { take(ev.data); poll(); }; } catch (e) {}
+}
+function extNow() { return ext && Date.now() - ext.at < 12 * 60000 ? ext : null; }   // a song older than 12 minutes is stale
+
 /* ---------- now playing ---------- */
-function showTrack(item, isPlaying, progress, deviceName) {
+function showTrack(item, isPlaying, progress, deviceName, noWho) {
   if (!item) { $('np').classList.remove('show'); return; }
   const imgs = (item.album && item.album.images) || [];
   const artUrl = (imgs[1] || imgs[0] || {}).url || '';
   $('art').src = artUrl; $('art').style.display = artUrl ? '' : 'none';
   $('title').textContent = item.name || '';
   $('artist').textContent = (item.artists || []).map(a => a.name).join(', ');
+  $('bar').style.display = item.duration_ms ? '' : 'none';
   $('bar').firstElementChild.style.width = item.duration_ms ? (100 * progress / item.duration_ms).toFixed(1) + '%' : '0';
-  const who = (current() || {}).name;
+  const who = noWho ? '' : (current() || {}).name;
   $('where').textContent = (isPlaying ? 'Playing on ' : 'Paused on ') + (deviceName || 'Spotify') + (who && Object.keys(loadProfiles()).length > 1 ? ' · ' + who : '');
   $('np').classList.add('show');
   if (item.id && item.id !== lastTrackId) {   // new song: show the card for ~10 s, then let it fade away
     lastTrackId = item.id; $('np').classList.add('fresh');
-    clearTimeout(freshT); freshT = setTimeout(() => $('np').classList.remove('fresh'), 10000);
+    clearTimeout(freshT); freshT = setTimeout(() => $('np').classList.remove('fresh'), 8000);
   }
   document.body.classList.toggle('playing', !!isPlaying);
 }
 async function poll() {
-  if (!current() || polling) return;
+  if (polling) return;
   polling = true;
   try {
-    let s = await playerState(currentId());
-    if (!(s && s.is_playing && s.item) && Date.now() > pinnedUntil) {   // current person is quiet: is someone else playing?
-      for (const id of Object.keys(loadProfiles())) {
-        if (id === currentId()) continue;
-        const o = await playerState(id);
-        if (o && o.is_playing && o.item) { await switchTo(id, true); s = o; break; }
+    let s = null;
+    if (current()) {
+      s = await playerState(currentId());
+      if (!(s && s.is_playing && s.item) && Date.now() > pinnedUntil) {   // current person is quiet: is someone else playing?
+        for (const id of Object.keys(loadProfiles())) {
+          if (id === currentId()) continue;
+          const o = await playerState(id);
+          if (o && o.is_playing && o.item) { await switchTo(id, true); s = o; break; }
+        }
       }
     }
     const note = $('restrictedNote'), panel = $('panel');
+    if (!(s && s.is_playing && s.item)) {   // Spotify has nothing playing: use what Home Assistant reports, if anything
+      const e = extNow();
+      if (e) {
+        showTrack({ id: 'ext:' + e.title + '|' + e.artist, name: e.title, artists: e.artist ? [{ name: e.artist }] : [], album: { images: [] }, duration_ms: 0 }, true, 0, EXT_DEVICE, true);
+        panel.classList.remove('restricted'); panel.classList.add('quiet'); note.classList.add('hidden');
+        return;
+      }
+    }
     if (!s || !s.item) {
       showTrack(null); document.body.classList.remove('playing');
       panel.classList.remove('restricted'); panel.classList.add('quiet');
@@ -519,7 +548,7 @@ async function phoneMode(pair) {
 }
 
 /* ---------- UI wiring ---------- */
-function showSignedIn(on) { $('signedOut').classList.toggle('hidden', on); $('signedIn').classList.toggle('hidden', !on); }
+function showSignedIn(on) { document.body.classList.toggle('signedin', !!on); $('signedOut').classList.toggle('hidden', on); $('signedIn').classList.toggle('hidden', !on); }
 let started = false;
 async function refreshUi() {
   const c = current();
@@ -529,7 +558,6 @@ async function refreshUi() {
   if (!started) {
     started = true;
     if (!IS_TV) loadSdk();   // TV browsers can only run one media stream; keep the music on the Sonos
-    pollTimer = setInterval(poll, 5000);
   }
   if (!IS_TV) await Promise.all([loadPlaylists(), loadDevices()]);
   poll();
@@ -562,7 +590,7 @@ $('fs').onclick = () => { const d = document.documentElement;
   try { const r = document.fullscreenElement ? document.exitFullscreen() : (d.requestFullscreen || d.webkitRequestFullscreen).call(d); r && r.catch && r.catch(() => {}); } catch (e) {} };
 
 // hide controls after a few idle seconds; any mouse move, remote pointer or key brings them back
-let idleT; function wake() { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 6000); }
+let idleT; function wake() { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 8000); }
 ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(e => addEventListener(e, wake)); wake();
 addEventListener('keydown', e => {   // TV remote / keyboard shortcuts
   if (e.target.tagName === 'SELECT') return;
@@ -590,7 +618,9 @@ setInterval(() => { const v = $('bg'); if (v.paused) v.play().catch(() => {}); }
   if (pair) return phoneMode(pair);
   try { await migrateOldSignIn(); } catch (e) {}
   try { await finishLoginIfReturning(); } catch (e) { say(e.message); }
+  startExt();
   await refreshUi();
+  pollTimer = setInterval(poll, 5000);
 })();
 </script>
 </body>
