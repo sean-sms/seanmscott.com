@@ -17,20 +17,11 @@
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--cream);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   body.idle { cursor: none; }
-  #bg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover;
-    animation: drift 780s ease-in-out infinite alternate; transform-origin: center; will-change: transform; }
-  /* OLED care: the scene slowly wanders by about 1.5% of the screen so no edge rests on the same pixels */
-  @keyframes drift {
-    0%   { transform: scale(1.045) translate(-1.5%, -1.0%); }
-    25%  { transform: scale(1.055) translate(1.2%, -1.4%); }
-    50%  { transform: scale(1.04)  translate(1.5%, 1.1%); }
-    75%  { transform: scale(1.06)  translate(-1.0%, 1.5%); }
-    100% { transform: scale(1.045) translate(-1.5%, -0.4%); }
-  }
-  #shade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 90s linear; z-index: 3; }
-  #shade.dim { opacity: .18; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: center; transform: scale(1.03); }
+  #shade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 300s linear; z-index: 3; }
+  #shade.dim { opacity: .12; }
   #shade.rest { opacity: 1; transition: opacity 20s linear; z-index: 9; }
-  #shade.quick { transition: opacity .8s; }
+  #shade.quick { transition: opacity 3s; }
 
   /* now playing card */
   #np { position: fixed; left: 3.2vw; bottom: 4.5vh; display: none; align-items: center; gap: 1.1vw;
@@ -172,7 +163,8 @@ const CLIENT_ID = '85e0deca7c874762b0ba9e4f22f2817b';
 const PLAYLIST_URI = 'spotify:playlist:62K7byeIgJuvMEMW14Oy1K';      // the house Christmas playlist
 const PLAYLIST_NAME = '🎄 Popular Christmas Music Hits';
 const RELAY = 'https://ntfy.sh/';   // passes the phone's (encrypted) sign-in to this screen; it never sees the contents
-const DIM_AFTER_MIN = 30;     // OLED care: dim the picture a little after this long without the remote/mouse
+const SHIFT_EVERY_MIN = 10;   // OLED care: nudge the picture a few pixels this often (one instant step, no animation)
+const DIM_AFTER_MIN = 45;     // OLED care: dim the picture a little after this long without the remote/mouse
 const REST_AFTER_HOURS = 4;   // ...and fade to black after this long (any remote/mouse movement brings it back)
 const EXT_DEVICE = 'Living Room Sonos';   // label for songs reported by Home Assistant
 const PREFERRED_DEVICE = /beam|sonos|living/i;   // picked automatically if found
@@ -605,12 +597,24 @@ $('device').onchange = () => updateCurrent({ device: $('device').value });
 $('fs').onclick = () => { const d = document.documentElement;
   try { const r = document.fullscreenElement ? document.exitFullscreen() : (d.requestFullscreen || d.webkitRequestFullscreen).call(d); r && r.catch && r.catch(() => {}); } catch (e) {} };
 
+/* ---------- OLED care: occasional pixel shift ----------
+   The picture is zoomed 3% and moved by a few whole pixels every SHIFT_EVERY_MIN minutes, in one instant step
+   (no animation), wandering within about 1.2% of the screen. The position carries over between sessions. */
+const tri = u => { u = ((u % 1) + 1) % 1; return u < .25 ? 4 * u : u < .75 ? 2 - 4 * u : 4 * u - 4; };
+let shiftN = Number(store.get('shift') || 0) || 0;
+function applyShift() {
+  const x = Math.round(innerWidth * 0.012 * tri(shiftN / 32)), y = Math.round(innerHeight * 0.010 * tri(shiftN / 40 + .13));
+  $('bg').style.transform = 'translate(' + x + 'px,' + y + 'px) scale(1.03)';
+}
+applyShift(); addEventListener('resize', applyShift);
+setInterval(() => { shiftN++; store.set('shift', String(shiftN)); applyShift(); }, SHIFT_EVERY_MIN * 60000);
+
 /* ---------- OLED care: dim, then rest ---------- */
 let dimT, restT, resting = false;
 function careReset() {
   const sh = $('shade');
   if (resting || sh.classList.contains('dim')) {   // come back quickly when someone picks up the remote
-    sh.classList.add('quick'); setTimeout(() => sh.classList.remove('quick'), 1200);
+    sh.classList.add('quick'); setTimeout(() => sh.classList.remove('quick'), 3500);
   }
   sh.classList.remove('dim', 'rest');
   if (resting) { resting = false; $('bg').play().catch(() => {}); }
