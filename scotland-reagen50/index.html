@@ -49,7 +49,7 @@ small{opacity:.6;display:block;margin-bottom:8px;line-height:1.35}
 <div id="panel">
   <button id="closep" title="Close (Esc)" style="position:absolute;right:10px;top:8px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer">&times;</button>
   <h3>Photos</h3>
-  <label>Seconds per photo <input id="secs" type="number" min="3" max="120" value="12"></label>
+  <label>Seconds per photo <input id="secs" type="number" min="3" max="120" value="8"></label>
   <button class="s" id="add">Add my own photos…</button><input id="file" type="file" accept="image/*" multiple hidden>
   <button class="s" id="rev">Review / edit photos (G)</button><small>Keys: G review photos · Space / → next · ← previous · F fullscreen · M music panel. You can also drag photos onto the page.</small>
   <h3>Music</h3>
@@ -127,7 +127,7 @@ function show(i){
 }
 function next(skip){idx=(idx+1)%order.length;if(idx===0&&!skip&&order.length>1)order=shuffle(order);show(idx);reset()}
 function prev(){idx=(idx-1+order.length)%order.length;show(idx);reset()}
-function reset(){clearInterval(timer);timer=setInterval(next,Math.max(3,+document.getElementById('secs').value||12)*1000)}
+function reset(){clearInterval(timer);timer=setInterval(next,Math.max(3,+document.getElementById('secs').value||8)*1000)}
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key===' '||e.key==='ArrowRight')next();
