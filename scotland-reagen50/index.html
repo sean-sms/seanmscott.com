@@ -35,10 +35,17 @@ small{opacity:.6;display:block;margin-bottom:8px;line-height:1.35}
 .th.off img{opacity:.18;filter:grayscale(1)}
 .th .x{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;font-size:14px}
 .th.off .x{background:#c33}
+#shade{position:absolute;left:0;right:0;bottom:0;height:160px;background:linear-gradient(transparent,rgba(0,0,0,.55));pointer-events:none;z-index:2}
+#title small{display:block;font-size:13px;font-weight:400;opacity:.85;letter-spacing:.04em;margin:3px 0 0}
+#stamp{position:absolute;right:28px;bottom:24px;text-align:right;z-index:3;pointer-events:none;text-shadow:0 1px 10px #000;font-family:Georgia,'Times New Roman',serif}
+#stamp .a{font-size:22px;font-style:italic;letter-spacing:.02em}
+#stamp .b{font-size:14px;letter-spacing:.18em;text-transform:uppercase;opacity:.9;margin-top:4px;font-family:-apple-system,Segoe UI,Helvetica,sans-serif}
 </style></head><body>
 <div id="stage"></div>
 <div id="gal"><div class="bar"><b id="cnt"></b><input id="newurl" type="text" placeholder="Paste an image link to add"><button id="addurl">Add link</button><button id="addf">Add files…</button><button class="g" id="cred">Photo credits</button><button class="g" id="restore">Restore all</button><button class="g" id="done">Done (G)</button></div><div id="grid"></div></div>
-<div id="title"><b>Scotland · October 2027</b>Reagen's 50th</div>
+<div id="shade"></div>
+<div id="title"><b>Scotland</b><small>From the trip itinerary</small></div>
+<div id="stamp"><div class="a">Celebrating Reagen's 50th</div><div class="b">Oct 12, 2027</div></div>
 <div id="panel">
   <button id="closep" title="Close (Esc)" style="position:absolute;right:10px;top:8px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer">&times;</button>
   <h3>Photos</h3>
@@ -107,7 +114,7 @@ let order=[],idx=-1,timer=null,cur=null;
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function rebuild(){order=shuffle(all().filter(u=>!off.has(u)));idx=-1}
 function show(i){
-  const url=order[i];const img=new Image();const mt=META[url];document.getElementById('title').innerHTML=mt?'<b>'+mt.cap+'</b>Photo: '+mt.cred+' · '+mt.lic:'<b>Scotland · October 2027</b>Reagen\'s 50th';
+  const url=order[i];const img=new Image();const mt=META[url];document.getElementById('title').innerHTML=mt?'<b>'+mt.cap+'</b><small>Photo: '+mt.cred+' · '+mt.lic+'</small>':(own.includes(url)?'<b>Our photo</b>':'<b>Scotland</b><small>From the trip itinerary</small>');
   img.onload=()=>{
     const l=document.createElement('div');l.className='layer kb';
     l.innerHTML='<div class="bg"></div><div class="fg"></div>';
