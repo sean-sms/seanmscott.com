@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scotland 2027 · Backdrop</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:-apple-system,Segoe UI,Helvetica,sans-serif;color:#fff}
+.layer{position:absolute;inset:0;opacity:0;transition:opacity 2.5s ease}
+.layer.on{opacity:1}
+.layer .bg{position:absolute;inset:-5%;background-size:cover;background-position:center;filter:blur(40px) brightness(.55)}
+.layer .fg{position:absolute;inset:0;background-size:contain;background-repeat:no-repeat;background-position:center}
+.kb .fg{animation:kb 18s ease-in-out forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.06)}}
+#title{position:absolute;left:28px;bottom:24px;font-size:15px;letter-spacing:.08em;text-shadow:0 1px 8px #000;opacity:.85;pointer-events:none;z-index:3}
+#title b{display:block;font-size:22px;font-weight:600;letter-spacing:.02em}
+#panel{position:absolute;right:16px;top:16px;width:340px;background:rgba(15,15,20,.82);backdrop-filter:blur(10px);border-radius:14px;padding:14px;transform:translateX(380px);transition:transform .35s;z-index:5}
+#panel.open{transform:none}
+#gear{position:absolute;right:16px;top:16px;z-index:6;width:40px;height:40px;border-radius:50%;border:0;background:rgba(15,15,20,.6);color:#fff;font-size:18px;cursor:pointer;opacity:0;transition:opacity .3s}
+body:hover #gear{opacity:1}
+#panel.open~#gear{display:none}
+#panel h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;opacity:.7}
+#panel input[type=text],#panel input[type=number]{width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #444;background:#1c1c24;color:#fff;margin-bottom:8px}
+#panel button.s{padding:7px 10px;border-radius:8px;border:0;background:#3a6df0;color:#fff;cursor:pointer;margin:0 6px 8px 0}
+#panel a{color:#9db8ff;font-size:13px;margin-right:10px}
+#player{margin-top:6px}#player iframe{width:100%;border:0;border-radius:12px}
+small{opacity:.6;display:block;margin-bottom:8px;line-height:1.35}
+#gal{position:absolute;inset:0;background:rgba(8,8,12,.96);z-index:10;overflow:auto;padding:20px;display:none}
+#gal.open{display:block}
+#gal .bar{position:sticky;top:-20px;background:rgba(8,8,12,.96);padding:10px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;z-index:2}
+#gal .bar input{flex:1;min-width:220px;padding:8px;border-radius:8px;border:1px solid #444;background:#1c1c24;color:#fff}
+#gal button{padding:8px 12px;border-radius:8px;border:0;background:#3a6df0;color:#fff;cursor:pointer}
+#gal button.g{background:#444}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.th{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;cursor:pointer;background:#222}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th.off img{opacity:.18;filter:grayscale(1)}
+.th .x{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);border-radius:50%;width:24px;height:24px;line-height:24px;text-align:center;font-size:14px}
+.th.off .x{background:#c33}
+</style></head><body>
+<div id="stage"></div>
+<div id="gal"><div class="bar"><b id="cnt"></b><input id="newurl" type="text" placeholder="Paste an image link to add"><button id="addurl">Add link</button><button id="addf">Add files…</button><button class="g" id="cred">Photo credits</button><button class="g" id="restore">Restore all</button><button class="g" id="done">Done (G)</button></div><div id="grid"></div></div>
+<div id="title"><b>Scotland · October 2027</b>Reagen's 50th</div>
+<div id="panel">
+  <button id="closep" title="Close (Esc)" style="position:absolute;right:10px;top:8px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer">&times;</button>
+  <h3>Photos</h3>
+  <label>Seconds per photo <input id="secs" type="number" min="3" max="120" value="12"></label>
+  <button class="s" id="add">Add my own photos…</button><input id="file" type="file" accept="image/*" multiple hidden>
+  <button class="s" id="rev">Review / edit photos (G)</button><small>Keys: G review photos · Space / → next · ← previous · F fullscreen · M music panel. You can also drag photos onto the page.</small>
+  <h3>Music</h3>
+  <input id="mus" type="text" placeholder="Paste a Spotify, YouTube, Apple Music or SoundCloud link">
+  <button class="s" id="load">Load</button>
+  <div><a target="_blank" href="https://open.spotify.com">Spotify</a><a target="_blank" href="https://music.apple.com">Apple Music</a><a target="_blank" href="https://music.youtube.com">YouTube Music</a><a target="_blank" href="https://soundcloud.com">SoundCloud</a></div>
+  <small>Each service plays inside the page via its own embed. One embed plays at a time, so for a true mix, build one playlist in your favorite service and paste that.</small>
+  <div id="player"></div>
+</div>
+<button id="gear" title="Settings (M)">&#9835;</button>
+<script>
+const FORA=[
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/8bc7f38a-1cac-4bef-9869-70305bfcfb9e?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/f7de6f10-232a-4a89-b7bb-134b4333baa8?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/4eadf3bd-663c-4008-9346-20151db4d3af?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/52b45dac-39f0-4dd4-b1b4-d8a3b1eb3ce1?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/1c5d10a3-ec40-41f4-9744-be6653f97758?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/a5bf752f-02ad-4c2f-afa6-8398b7a3739a?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/eac91e2f-2577-4b5a-9215-a7cd0709d7e8?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/3ad61133-72f0-41ba-bab9-04603824693e?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/3793b778-012b-4619-91e0-32f77bc3d5e2?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/57a54de7-eeb5-470d-be0f-49da548cbc15?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/c638ed9d-da77-4bb5-bc36-74468f4e15f7?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/be763cdf-a6f3-496e-9e22-3985d894efd8?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/6de602d5-55f9-453b-875e-eabba13494ba?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/81faa3e9-e7b6-4e55-96ec-749203074594?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/6ea7c590-1934-409b-9ee6-081de1c83731?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/f522e51e-2c4c-4992-a168-14fff6fe6084?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/bee457dc-2c2b-46db-b7ea-c7886c3a7d80?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/75866cab-1215-4cd9-b513-fa11c30a2c17?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/7e18db31-0a9b-4c4f-8d56-10d05223195c?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/e2c6ae71-9a34-4753-9c24-49706d0496f7?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/95a7350f-9d2f-418b-84c2-b31274cbdb61?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/81e138f6-5fb0-4522-b683-c6e4598bdf50?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/c8295f82-2159-425d-b828-7bc2cfad442f?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/1ae5f77e-5fc5-401a-8f42-25cdb4200d76?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/cbdd0901-15d4-4734-97e4-7c66043a818b?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/ce95105e-1de5-4f77-9d7b-797602681eb2?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/e7700d08-2ee8-4795-8093-309f4191ea05?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/4d0b5c92-f20d-4b9b-9fcd-c624b02e434a?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/776d3779-032e-47fe-8fa5-1533e45e375f?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/59d54d5e-a880-4a2f-9bde-1a3c7a0e4d1f?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/67b56455-9319-44eb-8b59-ba32aee259fb?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/018060a5-6bf5-4862-82ad-ee65a202385a?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/2cd0992e-c176-4788-a19b-a6bc215b8b7f?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/53010d89-5487-4198-8ab9-c4f7e485a793?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/bf515c59-5503-47be-a802-52e5822f0aaa?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/f0937517-180e-408c-a307-373aa80c661b?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/d4fd2342-9aa0-499e-9ce8-8246c72cacbe?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/6414d1c0-2832-4cf5-b479-6798efad971f?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/de2774e4-4d70-46fc-8607-3e120ac5dc71?_a=BAVAZGGg0",
+  "https://media.fora.travel/foratravelportal/image/upload/c_limit,w_1920/f_auto/q_auto/v1/e94ee7d1-f199-422a-8d02-a91db4c17019?_a=BAVAZGGg0"
+];
+let own=[],commons=[];const META={};
+const CITEMS=[["Edinburgh Castle", "Edinburgh Castle from the Grassmarket.jpg"], ["Edinburgh Castle", "Edinburgh Castle 2.jpg"], ["Victoria Street, Edinburgh", "Edinburgh Victora Street 20211019.jpg"], ["Victoria Street, Edinburgh", "Victoria Street, Edinburgh, Scotland.jpg"], ["The Royal Mile, Edinburgh", "The Royal Mile, Edinburgh, Scotland.jpg"], ["Arthur's Seat, Edinburgh", "View of Edinburgh from Arthur's Seat May 2025.jpg"], ["Arthur's Seat, Edinburgh", "Colline Arthur Seat Édimbourg 21.jpg"], ["Sunset on Calton Hill, Edinburgh", "SunsetMonument.jpg"], ["Calton Hill, Edinburgh", "Calton Hill, Edinburgh (10612596363).jpg"], ["Urquhart Castle & Loch Ness", "The Loch Ness and Urquhart castle.jpg"], ["Urquhart Castle, Loch Ness", "Urquhart Castle 1 20211024.jpg"], ["Urquhart Castle, Loch Ness", "Urquhart Castle on Loch Ness.jpg"], ["Urquhart Castle, Loch Ness", "Urquhart Castle Ruin above Loch Ness.jpg"], ["Loch Ness rainbow", "Loch Ness with rainbow 20171001.jpg"], ["Loch Ness", "Loch Ness Beautiful View.jpg"], ["Highland cattle, Isle of Skye", "Highland Cattle on Isle of Skye, Scotland.jpg"], ["Highland cow", "Highland cattle kopf.jpg"], ["Highland calf", "Highland cattle calf-20170520-RM-112548.jpg"], ["Eilean Donan Castle", "Eilean Donan castle - 95mm.jpg"], ["Eilean Donan Castle", "Eilean Donan Castle, Scotland - Jan 2011.jpg"], ["Eilean Donan at dusk", "Eilean Donan at Dusk.jpg"], ["Eilean Donan Castle", "Eilean Donan Castle from South.jpg"], ["Eilean Donan reflections", "Eilean Donan castle - ripples.jpg"], ["Old Man of Storr, Skye", "Old Man Of Storr (148017623).jpeg"], ["Old Man of Storr, Skye", "Old Man of Storr, Trottenish Peninsula, Isle of Skye.jpg"], ["Old Man of Storr, Skye", "OM Storr 2004.jpg"], ["Kilt Rock, Skye", "Schotland Kilt Rock 14-05-2010 14-42-23.JPG"], ["Mealt Falls & Kilt Rock", "The base of Mealt Falls alongside Kilt Rock in Elishader, Portree.jpg"], ["Mealt Falls & Kilt Rock", "Mealt Waterfall with Kilt Rock, Isle of Skye.jpg"], ["The Quiraing, Skye", "South over the Quiraing, Isle of Skye.jpg"], ["The Quiraing, Skye", "North over the Quiraing, Isle of Skye.jpg"], ["The Quiraing, Skye", "The Quiraing, Isle of Skye, Scotland.jpg"], ["The Quiraing, Skye", "Quiraing, Isle of Skye, Highland,.jpg"], ["Fairy Glen, Skye", "Fairy Glen Skye.jpg"], ["Fairy Glen, Skye", "Fairy Glen (34519415013).jpg"], ["Fairy Glen, Skye", "Skye Fairy Glen 1.jpg"], ["The Fairy Pools, Skye", "The Fairy Pools. Skye. - Flickr - gailhampshire.jpg"], ["The Fairy Pools, Skye", "The Fairy Pools (228835567).jpeg"], ["Sligachan Old Bridge, Skye", "Old Sligachan Bridge.jpg"], ["Sligachan Old Bridge, Skye", "Sligachan Old Bridge, Isle of Skye, Highland.jpg"], ["Sligachan Old Bridge, Skye", "Heather at the Sligachan Old Bridge.jpg"], ["Neist Point Lighthouse, Skye", "Neist Point Lighthouse (2013), Isle of Skye.jpg"], ["Neist Point Lighthouse, Skye", "Neist Point Lighthouse in 2013, Isle of Skye.jpg"], ["Neist Point cliffs, Skye", "Cliffs and Neist Point Lighthouse (2013).jpg"], ["Neist Point, Skye", "Cattle near Neist Point Lighthouse.jpg"], ["Talisker Distillery, Carbost", "Talisker Destillery in Carbost 2012.JPG"], ["Stills at Talisker Distillery", "Stills at Talisker Distillery.jpg"], ["Talisker Distillery", "Talisker Distillery, Isle of Skye.jpg"], ["Dunvegan Castle, Skye", "Dunvegan Castle at low tide.jpg"], ["Dunvegan Castle, Skye", "Scotland - Dunvegan Castle 19.JPG"], ["Dunvegan Castle in the mist", "Dunvegan Castle in the mist01editcrop 2007-08-22.jpg"], ["Portree Harbour, Skye", "Portree harbour front 2016.jpg"], ["Portree Harbour, Skye", "Portree Harbour - geograph.org.uk - 5083619.jpg"], ["The Three Sisters, Glencoe", "The Three Sisters of Glencoe - geograph.org.uk - 4673948.jpg"], ["The Three Sisters, Glencoe", "The Three Sisters, Glencoe, Scotland.jpg"], ["Glencoe valley", "The Three Sisters Valley, Glencoe, Scotland - 53744377929.jpg"], ["The Three Sisters, Glencoe", "The Three Sisters from Old Glencoe Road 02.jpg"], ["Glencoe Lochan reflections", "Glencoe Lochan reflections 1 20211022.jpg"], ["Glencoe Lochan", "Glencoe Lochan Trail - The islands in Glencoe Lochan - geograph.org.uk - 8143696.jpg"], ["Barcaldine Castle", "Barcaldine Castle - view from S.jpg"], ["Barcaldine Castle", "Barcaldine Castle - geograph.org.uk - 6209398.jpg"], ["Barcaldine Castle", "Barcaldine Castle - view of carved panel.jpg"], ["Loch Lomond from the Luss Hills", "View towards Loch Lomond from Beinn Eich, Luss Hills, Scotland.jpg"], ["Loch Lomond at Luss", "Loch Lomond at Luss - geograph.org.uk - 4164849.jpg"], ["Loch Lomond sunset", "Loch Lomond sunset 070.jpg"], ["Loch Lomond sunset", "Loch Lomond sunset.jpg"], ["Loch Lomond from Conic Hill", "Loch Lomond from Conic Hill.jpg"], ["Sunset in the Trossachs", "Sunset in The Trossachs, Scotland.jpg"], ["Loch Lomond Golf Club", "Loch Lomond Golf Club - geograph.org.uk - 2203843.jpg"], ["Isle of Skye Golf Course, Sconser", "Isle of Skye Golf Course - geograph.org.uk - 3026709.jpg"], ["Bruntsfield Links Golf Club, Edinburgh", "Pond, Bruntsfield Links Golf Club - geograph.org.uk - 7912531.jpg"], ["The Old Course, St Andrews (bonus)", "R&A Clubhouse, Old Course, Swilcan Burn bridge.jpg"], ["The Old Course, St Andrews (bonus)", "The Old Course, St Andrews-Geograph-3632139-by-Neil-Theasby.jpg"], ["Swilcan Bridge, St Andrews (bonus)", "Swilcan Bridge.jpg"], ["Turnberry Lighthouse (bonus)", "Turnberry Lighthouse (29972057257).jpg"], ["Royal Troon (bonus)", "Royal Troon, looking south with Clyde on right.jpg"]];
+const LS=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
+const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let off=new Set(LS('scot-off',[])),added=LS('scot-added',[]);
+const all=()=>FORA.concat(commons).concat(added).concat(own);
+const stage=document.getElementById('stage');
+let order=[],idx=-1,timer=null,cur=null;
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function rebuild(){order=shuffle(all().filter(u=>!off.has(u)));idx=-1}
+function show(i){
+  const url=order[i];const img=new Image();const mt=META[url];document.getElementById('title').innerHTML=mt?'<b>'+mt.cap+'</b>Photo: '+mt.cred+' · '+mt.lic:'<b>Scotland · October 2027</b>Reagen\'s 50th';
+  img.onload=()=>{
+    const l=document.createElement('div');l.className='layer kb';
+    l.innerHTML='<div class="bg"></div><div class="fg"></div>';
+    l.querySelector('.bg').style.backgroundImage=l.querySelector('.fg').style.backgroundImage='url("'+url+'")';
+    stage.appendChild(l);requestAnimationFrame(()=>requestAnimationFrame(()=>l.classList.add('on')));
+    const old=cur;cur=l;if(old){old.classList.remove('on');setTimeout(()=>old.remove(),2800)}
+  };
+  img.onerror=()=>{order.splice(i,1);if(!order.length)return;idx=i-1;next(true)};
+  img.src=url;
+}
+function next(skip){idx=(idx+1)%order.length;if(idx===0&&!skip&&order.length>1)order=shuffle(order);show(idx);reset()}
+function prev(){idx=(idx-1+order.length)%order.length;show(idx);reset()}
+function reset(){clearInterval(timer);timer=setInterval(next,Math.max(3,+document.getElementById('secs').value||12)*1000)}
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key===' '||e.key==='ArrowRight')next();
+  else if(e.key==='ArrowLeft')prev();
+  else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+  else if(e.key==='m'||e.key==='M')document.getElementById('panel').classList.toggle('open');
+});
+const panel=document.getElementById('panel');
+document.getElementById('closep').onclick=()=>panel.classList.remove('open');
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){panel.classList.remove('open');if(document.activeElement)document.activeElement.blur()}});
+stage.addEventListener('click',()=>panel.classList.remove('open'));
+document.getElementById('gear').onclick=()=>document.getElementById('panel').classList.add('open');
+document.getElementById('secs').onchange=reset;
+document.getElementById('add').onclick=()=>document.getElementById('file').click();
+var addFiles=function(fs){for(const f of fs)if(f.type.startsWith('image/'))own.push(URL.createObjectURL(f));rebuild();next()}
+document.getElementById('file').onchange=e=>addFiles(e.target.files);
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();addFiles(e.dataTransfer.files)});
+function embed(u){
+  u=u.trim();let m;
+  if(m=u.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist|show)\/([A-Za-z0-9]+)/))return 'https://open.spotify.com/embed/'+m[1]+'/'+m[2]+'?theme=0';
+  if(m=u.match(/[?&]list=([\w-]+)/))return 'https://www.youtube.com/embed/videoseries?list='+m[1]+'&autoplay=1';
+  if(m=u.match(/(?:youtu\.be\/|v=)([\w-]{11})/))return 'https://www.youtube.com/embed/'+m[1]+'?autoplay=1';
+  if(/music\.apple\.com/.test(u))return u.replace('music.apple.com','embed.music.apple.com');
+  if(/soundcloud\.com/.test(u))return 'https://w.soundcloud.com/player/?url='+encodeURIComponent(u)+'&auto_play=true';
+  return null;
+}
+function loadMusic(u){
+  const src=embed(u);const p=document.getElementById('player');
+  if(!src){p.textContent='Link not recognized.';return}
+  p.innerHTML='<iframe height="352" allow="autoplay *; encrypted-media *; fullscreen *" src="'+src+'"></iframe>';
+  try{localStorage.setItem('scotland-music',u)}catch(e){}
+}
+document.getElementById('load').onclick=()=>loadMusic(document.getElementById('mus').value);
+const DEFAULT_MUSIC='https://open.spotify.com/playlist/130eeWourT30SmMAIicEjW';
+let saved=null;try{saved=localStorage.getItem('scotland-music')}catch(e){}
+{const s=saved||DEFAULT_MUSIC;document.getElementById('mus').value=s;loadMusic(s)}
+const gal=document.getElementById('gal'),grid=document.getElementById('grid');
+function drawGrid(){
+  grid.innerHTML='';
+  all().forEach(u=>{
+    const d=document.createElement('div');d.className='th'+(off.has(u)?' off':'');
+    const mm=META[u];d.title=mm?mm.cap+' — '+mm.cred+' ('+mm.lic+')':'Fora itinerary photo';d.innerHTML='<img loading="lazy" src="'+u+'"><div class="x">'+(off.has(u)?'+':'\u00d7')+'</div>';
+    d.onclick=()=>{off.has(u)?off.delete(u):off.add(u);SV('scot-off',[...off]);drawGrid()};
+    d.querySelector('img').onerror=()=>{d.style.display='none'};
+    grid.appendChild(d);
+  });
+  document.getElementById('cnt').textContent=(all().length-[...off].filter(u=>all().includes(u)).length)+' of '+all().length+' photos in rotation';
+}
+function openGal(){gal.classList.add('open');drawGrid()}
+function closeGal(){gal.classList.remove('open');rebuild();next()}
+document.getElementById('cred').onclick=()=>{const w=window.open('','_blank');w.document.write('<title>Photo credits</title><body style="font-family:sans-serif;max-width:800px;margin:30px auto"><h2>Photo credits</h2><p>Itinerary photos: Fora Travel itinerary (personal use). Other photos via Wikimedia Commons under the licenses shown.</p><ul>'+Object.values(META).map(m=>'<li>'+m.cap+' — '+m.cred+', '+m.lic+' (<a href="'+m.page+'">source</a>)</li>').join('')+'</ul>')};
+document.getElementById('rev').onclick=openGal;
+document.getElementById('done').onclick=closeGal;
+document.getElementById('restore').onclick=()=>{off.clear();SV('scot-off',[]);drawGrid()};
+document.getElementById('addf').onclick=()=>document.getElementById('file').click();
+document.getElementById('addurl').onclick=()=>{const v=document.getElementById('newurl').value.trim();if(/^https?:\/\//.test(v)&&!added.includes(v)){added.push(v);SV('scot-added',added);document.getElementById('newurl').value='';drawGrid()}};
+document.addEventListener('keydown',e=>{if(e.target.tagName!=='INPUT'&&(e.key==='g'||e.key==='G'))gal.classList.contains('open')?closeGal():openGal()});
+addFiles=function(fs){for(const f of fs)if(f.type.startsWith('image/'))own.push(URL.createObjectURL(f));rebuild();if(gal.classList.contains('open'))drawGrid();else next()};
+
+(async function(){
+  const caps={};CITEMS.forEach(([c,f])=>caps['File:'+f]=c);
+  const titles=Object.keys(caps);
+  for(let i=0;i<titles.length;i+=20){
+    const b=titles.slice(i,i+20);
+    try{
+      const j=await (await fetch('https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1920&titles='+encodeURIComponent(b.join('|')))).json();
+      const norm={};(j.query.normalized||[]).forEach(n=>norm[n.to]=n.from);
+      Object.values(j.query.pages||{}).forEach(p=>{
+        const ii=p.imageinfo&&p.imageinfo[0];if(!ii)return;const m=ii.extmetadata||{};
+        const cap=caps[p.title]||caps[norm[p.title]]||p.title.replace(/^File:|\.\w+$/g,'');
+        const cred=((m.Artist&&m.Artist.value)||'Wikimedia Commons').replace(/<[^>]+>/g,'').trim().slice(0,50);
+        const lic=(m.LicenseShortName&&m.LicenseShortName.value)||'';
+        META[ii.thumburl]={cap,cred,lic,page:ii.descriptionurl};commons.push(ii.thumburl);
+      });
+    }catch(e){}
+  }
+  if(gal.classList.contains('open'))drawGrid();
+  const cur=order[idx];order=shuffle(all().filter(u=>!off.has(u)));idx=order.indexOf(cur);if(idx<0)idx=-1;
+})();
+rebuild();next();
+</script></body></html>
